@@ -9,6 +9,8 @@ import (
 	"sync"
 )
 
+// wanna see more of this? => https://github.com/pemoreau/advent-of-code/blob/main/go/2023/05/day05.go
+
 //go:embed input.txt
 var input string
 
