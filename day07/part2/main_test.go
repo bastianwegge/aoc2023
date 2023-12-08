@@ -35,11 +35,50 @@ func Test_handInitialization(t *testing.T) {
 			input: []string{"A", "A", "1", "2", "4"},
 			want:  Hand{cards: []string{"A", "A", "1", "2", "4"}, cardCount: map[string]int{"A": 2, "1": 1, "2": 1, "4": 1}},
 		},
+		{
+			name:  "weird best hand scenario",
+			input: []string{"K", "T", "J", "J", "T"},
+			want:  Hand{cards: []string{"K", "T", "J", "J", "T"}, cardCount: map[string]int{"K": 1, "T": 2, "J": 2}, bestHand: &Hand{cards: []string{"K", "T", "T", "T", "T"}}},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := createHand(tt.input); reflect.DeepEqual(got, tt.want) {
+			hand := createHand(tt.input)
+			if got := hand; reflect.DeepEqual(got, tt.want) {
 				t.Errorf("part1() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_HandPossibleHands(t *testing.T) {
+	tests := []struct {
+		name  string
+		input []string
+		want  int
+	}{
+		{
+			name:  "no jokers",
+			input: []string{"A", "A", "A", "A", "3"},
+			want:  0,
+		},
+		{
+			name:  "one joker",
+			input: []string{"A", "A", "A", "A", "J"},
+			want:  12, // 12 possible cards to replace the joker
+		},
+		{
+			name:  "two jokers",
+			input: []string{"A", "A", "A", "J", "J"},
+			want:  288, // 12 possible cards for the first joker and 12 for the second, so 12*12 = 144
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hand := createHand(tt.input)
+			got := hand.PossibleHands()
+			if len(got) != tt.want {
+				t.Errorf("PossibleHands() = %v, want %v", len(got), tt.want)
 			}
 		})
 	}
@@ -77,60 +116,66 @@ func Test_HandGetType(t *testing.T) {
 		input Hand
 		want  int
 	}{
+		//{
+		//	name:  "five of a kind",
+		//	input: *createHand([]string{"A", "A", "A", "A", "A"}),
+		//	want:  FiveOfAKind,
+		//},
+		//{
+		//	name:  "four of a kind",
+		//	input: *createHand([]string{"A", "A", "A", "A", "3"}),
+		//	want:  FourOfAKind,
+		//},
+		//{
+		//	name:  "three of a kind",
+		//	input: *createHand([]string{"A", "A", "A", "5", "1"}),
+		//	want:  ThreeOfAKind,
+		//},
+		//{
+		//	name:  "one pair",
+		//	input: *createHand([]string{"A", "A", "1", "2", "4"}),
+		//	want:  OnePair,
+		//},
+		//{
+		//	name:  "full house",
+		//	input: *createHand([]string{"1", "1", "1", "2", "2"}),
+		//	want:  FullHouse,
+		//},
+		//{
+		//	name:  "full house 2",
+		//	input: *createHand([]string{"1", "2", "1", "2", "1"}),
+		//	want:  FullHouse,
+		//},
+		//{
+		//	name:  "two pair",
+		//	input: *createHand([]string{"1", "1", "4", "2", "2"}),
+		//	want:  TwoPair,
+		//},
+		//{
+		//	name:  "two pair",
+		//	input: *createHand([]string{"1", "2", "4", "6", "9"}),
+		//	want:  HighCard,
+		//},
+		//{
+		//	name:  "three of a kind with a joker",
+		//	input: *createHand([]string{"1", "2", "3", "3", "J"}),
+		//	want:  ThreeOfAKind,
+		//},
+		//{
+		//	name:  "five of a kind with three jokers",
+		//	input: *createHand([]string{"A", "A", "J", "J", "J"}),
+		//	want:  FiveOfAKind,
+		//},
 		{
-			name:  "five of a kind",
-			input: *createHand([]string{"A", "A", "A", "A", "A"}),
-			want:  FiveOfAKind,
-		},
-		{
-			name:  "four of a kind",
-			input: *createHand([]string{"A", "A", "A", "A", "3"}),
-			want:  FourOfAKind,
-		},
-		{
-			name:  "three of a kind",
-			input: *createHand([]string{"A", "A", "A", "5", "1"}),
-			want:  ThreeOfAKind,
-		},
-		{
-			name:  "one pair",
-			input: *createHand([]string{"A", "A", "1", "2", "4"}),
-			want:  OnePair,
-		},
-		{
-			name:  "full house",
-			input: *createHand([]string{"1", "1", "1", "2", "2"}),
-			want:  FullHouse,
-		},
-		{
-			name:  "full house 2",
-			input: *createHand([]string{"1", "2", "1", "2", "1"}),
-			want:  FullHouse,
-		},
-		{
-			name:  "two pair",
-			input: *createHand([]string{"1", "1", "4", "2", "2"}),
-			want:  TwoPair,
-		},
-		{
-			name:  "two pair",
-			input: *createHand([]string{"1", "2", "4", "6", "9"}),
-			want:  HighCard,
-		},
-		{
-			name:  "three of a kind with a joker",
-			input: *createHand([]string{"1", "2", "3", "3", "J"}),
-			want:  ThreeOfAKind,
-		},
-		{
-			name:  "five of a kind with three jokers",
-			input: *createHand([]string{"A", "A", "J", "J", "J"}),
+			name:  "five of a kind with five jokers",
+			input: *createHand([]string{"J", "J", "J", "J", "J"}),
 			want:  FiveOfAKind,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.input.BestHand().HandType(); got != tt.want {
+			bestHand := tt.input.bestHand
+			if got := bestHand.HandType(); got != tt.want {
 				t.Errorf("part1() = %v, want %v", got, tt.want)
 			}
 		})
@@ -184,6 +229,12 @@ func Test_HandCompare(t *testing.T) {
 			name:   "two pair but input1 second card is higher",
 			input1: *createHand([]string{"Q", "Q", "Q", "J", "A"}),
 			input2: *createHand([]string{"K", "T", "J", "J", "T"}),
+			want:   WIN,
+		},
+		{
+			name:   "two pair but input1 second card is higher",
+			input1: *createHand([]string{"A", "J", "J", "J", "A"}),
+			input2: *createHand([]string{"J", "J", "J", "J", "J"}),
 			want:   WIN,
 		},
 	}

@@ -28,6 +28,7 @@ type Hand struct {
 	cardCount     map[string]int
 	pos           int
 	possibleHands []Hand
+	bestHand      *Hand
 }
 
 const (
@@ -45,13 +46,23 @@ func createHand(cards []string) *Hand {
 		cards:     cards,
 		cardCount: make(map[string]int),
 	}
-	hand.possibleHands = hand.PossibleHands()
-	if len(hand.possibleHands) > 0 {
-		fmt.Println(hand.possibleHands[len(hand.possibleHands)-1])
-	}
 	for _, card := range cards {
 		hand.cardCount[card]++
 	}
+
+	hand.possibleHands = hand.PossibleHands()
+	hand.possibleHands = util.Filter(hand.CollectHands(), func(h Hand) bool {
+		return h.cardCount["J"] == 0
+	})
+	sort.Slice(hand.possibleHands, func(i, j int) bool {
+		return hand.possibleHands[i].Compare(hand.possibleHands[j]) == WIN
+	})
+	if len(hand.possibleHands) > 0 {
+		hand.bestHand = &hand.possibleHands[0]
+	} else {
+		hand.bestHand = &hand
+	}
+
 	return &hand
 }
 
@@ -59,6 +70,7 @@ func (h *Hand) CollectHands() []Hand {
 	if len(h.possibleHands) == 0 {
 		return []Hand{*h}
 	}
+
 	hands := make([]Hand, 0)
 	hands = append(hands, *h)
 	for _, possibleHand := range h.possibleHands {
@@ -69,32 +81,29 @@ func (h *Hand) CollectHands() []Hand {
 	return hands
 }
 
-func (h *Hand) BestHand() *Hand {
-	allHands := h.CollectHands()
-	if len(allHands) == 1 {
-		return h
-	}
-	sort.Slice(allHands, func(i, j int) bool {
-		return allHands[i].Compare(allHands[j]) == WIN
-	})
-	return &h.possibleHands[0]
-}
-
 func (h *Hand) PossibleHands() []Hand {
 	possibleHands := make([]Hand, 0)
+	if h.cardCount["J"] == 5 {
+		return []Hand{*createHand([]string{"A", "A", "A", "A", "A"})}
+	}
+	if h.cardCount["J"] == 0 {
+		return possibleHands
+	}
 	for cardIndex, myCard := range h.cards {
-		if myCard == "J" {
-			for _, card := range Cards {
-				if card == "J" {
-					continue
-				}
-				newCards := make([]string, len(h.cards))
-				copy(newCards, h.cards)
-				newCards[cardIndex] = card
-				possibleHands = append(possibleHands, *createHand(newCards))
+		if myCard != "J" {
+			continue
+		}
+		for _, card := range Cards {
+			if card == "J" {
+				continue
 			}
+			newCards := make([]string, len(h.cards))
+			copy(newCards, h.cards)
+			newCards[cardIndex] = card
+			possibleHands = append(possibleHands, *createHand(newCards))
 		}
 	}
+	//fmt.Println("possibleHands", len(possibleHands))
 	return possibleHands
 }
 
@@ -143,7 +152,7 @@ const (
 )
 
 func (h *Hand) Compare(other Hand) int {
-	handType := h.BestHand().HandType()
+	handType := h.HandType()
 	otherHandType := other.HandType()
 	if handType < otherHandType {
 		return WIN
@@ -178,7 +187,9 @@ func process(input string) int {
 	hands := make([]Hand, 0)
 	bids := make([]int, 0)
 	// reading and parsing the input to Hands
+	fmt.Println("reading")
 	for lineIndex, line := range lines {
+		fmt.Print(lineIndex, " ")
 		cardsAndBid := strings.Split(line, " ")
 		hand := *createHand(strings.Split(cardsAndBid[0], ""))
 		hand.pos = lineIndex
@@ -190,9 +201,14 @@ func process(input string) int {
 		bids = append(bids, bid)
 	}
 
+	fmt.Println("sorting")
 	sort.Slice(hands, func(i, j int) bool {
-		//fmt.Println(hands[i].cards, hands[j].cards, hands[i].Compare(hands[j]) == WIN)
-		return hands[i].Compare(hands[j]) != WIN
+		fmt.Print(i, " ")
+		left := hands[i].bestHand
+		right := hands[j].bestHand
+		result := left.Compare(*right)
+		fmt.Println(hands[i].cards, "(", left.cards, ")", " vs. ", hands[j].cards, "(", right.cards, ")", result)
+		return result != WIN
 	})
 
 	sum := 0
@@ -205,7 +221,7 @@ func process(input string) int {
 }
 
 func main() {
-	fmt.Println("Starting day06/part1")
+	fmt.Println("Starting day07/part2")
 	input := util.ReadFile("input.txt")
 	output := process(input)
 	fmt.Println(output)
