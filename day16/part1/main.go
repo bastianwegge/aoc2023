@@ -15,24 +15,108 @@ type Point struct {
 	y int
 }
 
-func (p *Point) Move(direction int) Point {
-	return Point{p.x + Directions[direction][0], p.y + Directions[direction][1]}
+func (p *Point) Move(direction string) Point {
+	return Point{p.x + Directions[direction][1], p.y + Directions[direction][0]}
 }
 
 type Beam struct {
-	Direction int
+	Direction string
 	Position  Point
 }
 
 // Directions where 0 is north, 1 is east, 2 is south, 3 is west
-var Directions = map[int][]int{0: {-1, 0}, 1: {0, 1}, 2: {1, 0}, 3: {0, -1}}
-var DirectionsDisplay = map[int]string{0: "^", 1: ">", 2: "v", 3: "<"}
+var Directions = map[string][]int{"^": {-1, 0}, ">": {0, 1}, "v": {1, 0}, "<": {0, -1}}
 
 func init() {
 	input = strings.TrimRight(input, "\n")
 	if len(input) == 0 {
 		panic("empty input.txt file")
 	}
+}
+
+func isMovementOutOfBounds(grid []string, currentPosition Point, currentDirection string) bool {
+	// if moving out of bounds, just break
+	switch currentDirection {
+	case "^":
+		if currentPosition.y == 0 {
+			return true
+		}
+	case ">":
+		if currentPosition.x == len(grid[currentPosition.y])-1 {
+			return true
+		}
+	case "v":
+		if currentPosition.y == len(grid)-1 {
+			return true
+		}
+	case "<":
+		if currentPosition.x == 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func getOppositeDirection(currentDirection string) string {
+	switch currentDirection {
+	case "^":
+		return "v"
+	case ">":
+		return "<"
+	case "v":
+		return "^"
+	case "<":
+		return ">"
+	default:
+		panic("unknown direction")
+	}
+	return ""
+}
+
+func decideNextDirection(grid []string, currentPosition Point, currentDirection string) (string, bool) {
+	switch grid[currentPosition.y][currentPosition.x] {
+	case '.':
+		return currentDirection, false
+	case '|':
+		if currentDirection == ">" || currentDirection == "<" {
+			return "v", true
+		}
+		return currentDirection, false
+	case '-':
+		if currentDirection == "^" || currentDirection == "v" {
+			return ">", true
+		}
+		return currentDirection, false
+	case '/':
+		if currentDirection == "v" {
+			return "<", false
+		}
+		if currentDirection == "<" {
+			return "v", false
+		}
+		if currentDirection == ">" {
+			return "^", false
+		}
+		if currentDirection == "^" {
+			return ">", false
+		}
+	case '\\':
+		if currentDirection == "v" {
+			return ">", false
+		}
+		if currentDirection == ">" {
+			return "v", false
+		}
+		if currentDirection == "<" {
+			return "^", false
+		}
+		if currentDirection == "^" {
+			return "<", false
+		}
+	}
+	fmt.Println("uncaught case", string(grid[currentPosition.y][currentPosition.x]), "at", currentPosition, "with direction", currentDirection)
+	panic("unknown outcome for decideNextDirection")
+	return "", false
 }
 
 func process(input string) int {
@@ -42,70 +126,78 @@ func process(input string) int {
 	}
 
 	beams := make([]Beam, 0)
-	beams = append(beams, Beam{Direction: 1, Position: Point{0, 0}})
+	beams = append(beams, Beam{Direction: ">", Position: Point{0, 0}})
+	beamOrigins := map[Point]string{}
 	visitedPositions := map[Point]int{}
 
 	// add current position to visited points
 	visitedPositions[beams[0].Position] = 1
-	for _, beam := range beams {
+	for beamIndex := 0; beamIndex < len(beams); beamIndex++ {
+		if beamIndex > 100000 {
+			break
+		}
+		if beamIndex%10000 == 0 {
+			fmt.Println("beam", beamIndex+1, "of", len(beams))
+		}
+		//fmt.Println("beam", beamIndex+1)
 		beamIsProductive := true
-		currentPosition := beam.Position
-		currentDirection := beam.Direction
+		currentPosition := beams[beamIndex].Position
+		currentDirection := beams[beamIndex].Direction
+		slack := 500
 
 		for beamIsProductive {
 			// MOVING
+			var splitBeam bool
+			currentDirection, splitBeam = decideNextDirection(grid, currentPosition, currentDirection)
+
 			// if moving out of bounds, just break
-
-			switch grid[currentPosition.y][currentPosition.x] {
-			case '.':
-				fmt.Println("moving", currentPosition, DirectionsDisplay[currentDirection])
-				currentPosition = currentPosition.Move(currentDirection)
-				fmt.Println("after moving", currentPosition)
-			case '|':
-				if currentDirection == 1 || currentDirection == 3 {
-					fmt.Println("// add north beam, we go south")
-					beams = append(beams, Beam{Direction: 2, Position: currentPosition})
-
-					// check if movement would be out of bounds
-					currentPosition = currentPosition.Move(currentDirection)
-				} else {
-					// just keep going
-					currentPosition = currentPosition.Move(currentDirection)
-				}
-			default:
+			if isMovementOutOfBounds(grid, currentPosition, currentDirection) {
 				break
 			}
 
-			// handle "|"
-			// if next position is "|" and we're going east or west, split north and south
-			// if next position is "|" and we're going north or south, keep going
+			//fmt.Println("pos:", currentPosition, "dir:", currentDirection, "char:", string(grid[currentPosition.y][currentPosition.x]))
+			if splitBeam {
+				create := true
+				if createdDirection, hasFoundCreatedBeam := beamOrigins[currentPosition]; hasFoundCreatedBeam {
+					if createdDirection == currentDirection {
+						create = false
+					}
+					fmt.Println("no need to spawn new beam, already exists")
+				}
+				if create {
+					beams = append(beams, Beam{Direction: getOppositeDirection(currentDirection), Position: currentPosition})
+				}
+			}
 
-			// handle "-"
-			// if next position is "-" and we're going north or south, split east and west
-			// if next position is "-" and we're going east or west, keep going
-
-			// handle "/"
-			// if next position is "/" and we're going south, go west
-			// if next position is "/" and we're going west, go south
-			// if next position is "/" and we're going east, go north
-			// if next position is "/" and we're going north, go east
-
-			// handle "\"
-			// if next position is "\" and we're going south, go east
-			// if next position is "\" and we're going east, go south
-			// if next position is "\" and we're going west, go north
-			// if next position is "\" and we're going north, go west
+			// move
+			currentPosition = currentPosition.Move(currentDirection)
 
 			// check if visited?
-			fmt.Println(visitedPositions[currentPosition], currentPosition)
 			if _, found := visitedPositions[currentPosition]; found {
-				beamIsProductive = false
+				slack--
+				if slack == 0 {
+					//fmt.Println("slack is 0, breaking")
+					beamIsProductive = false
+				}
 			} else {
 				// register visitedPosition
 				visitedPositions[currentPosition] = 1
 			}
 		}
 	}
+
+	//print visited in grid
+	for y, row := range grid {
+		for x, char := range row {
+			if _, found := visitedPositions[Point{x, y}]; found {
+				fmt.Print("X")
+			} else {
+				fmt.Print(string(char))
+			}
+		}
+		fmt.Println()
+	}
+
 	// count number of visitedBeams
 	return len(visitedPositions)
 }
